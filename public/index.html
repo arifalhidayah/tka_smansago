@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cek Nilai TKA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-2xl w-full bg-white rounded-xl shadow-lg overflow-hidden">
+        
+        <!-- Header -->
+        <div class="bg-blue-600 p-6 text-center">
+            <h1 class="text-2xl font-bold text-white mb-2">Cek Hasil Nilai TKA</h1>
+            <p class="text-blue-100 text-sm">Masukkan data diri Anda untuk melihat hasil studi.</p>
+        </div>
+
+        <!-- Search Form -->
+        <div id="searchSection" class="p-8">
+            <form id="searchForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                    <input type="text" id="nama" required placeholder="Contoh: Budi Santoso"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">NISN</label>
+                        <input type="number" id="nisn" required placeholder="1234567890"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Lahir</label>
+                        <input type="date" id="tanggal_lahir" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                    </div>
+                </div>
+
+                <div class="pt-4">
+                    <button type="submit" id="btnSubmit" 
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                        Lihat Hasil
+                    </button>
+                    <p id="errorMsg" class="text-red-500 text-sm mt-3 text-center hidden"></p>
+                </div>
+            </form>
+        </div>
+
+        <!-- Logic & Loading -->
+        <div id="loading" class="hidden p-8 text-center text-gray-500">
+            <svg class="animate-spin h-8 w-8 text-blue-600 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Memuat data...
+        </div>
+
+        <!-- Result Section -->
+        <div id="resultSection" class="hidden bg-gray-50 border-t border-gray-200">
+            <div class="p-6">
+                <div class="flex justify-between items-start border-b border-gray-200 pb-4 mb-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-800" id="resNama"></h2>
+                        <p class="text-gray-600 text-sm">NISN: <span id="resNISN"></span></p>
+                    </div>
+                    <button onclick="resetSearch()" class="text-sm text-blue-600 hover:text-blue-800">Cari Ulang</button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200">
+                        <thead class="bg-gray-100 text-gray-600 uppercase text-xs">
+                            <tr>
+                                <th class="px-6 py-3">Mata Pelajaran</th>
+                                <th class="px-6 py-3 text-center">Nilai</th>
+                                <th class="px-6 py-3 text-center">Kategori</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 text-sm" id="scoreTableBody">
+                            <!-- Rows injected via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        const searchForm = document.getElementById('searchForm');
+        const searchSection = document.getElementById('searchSection');
+        const resultSection = document.getElementById('resultSection');
+        const loading = document.getElementById('loading');
+        const errorMsg = document.getElementById('errorMsg');
+        const btnSubmit = document.getElementById('btnSubmit');
+
+        searchForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Get values
+            const nama = document.getElementById('nama').value.trim();
+            const nisn = document.getElementById('nisn').value.trim();
+            const tanggal_lahir = document.getElementById('tanggal_lahir').value;
+
+            // UI State: Loading
+            searchSection.classList.add('hidden');
+            loading.classList.remove('hidden');
+            errorMsg.classList.add('hidden');
+            resultSection.classList.add('hidden');
+
+            try {
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nama, nisn, tanggal_lahir })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.error || 'Terjadi kesalahan.');
+                }
+
+                const data = await response.json();
+                renderResult(data);
+
+            } catch (err) {
+                // Return to form with error
+                loading.classList.add('hidden');
+                searchSection.classList.remove('hidden');
+                errorMsg.textContent = err.message;
+                errorMsg.classList.remove('hidden');
+            }
+        });
+
+        function renderResult(data) {
+            loading.classList.add('hidden');
+            resultSection.classList.remove('hidden');
+
+            document.getElementById('resNama').textContent = data.nama_lengkap;
+            document.getElementById('resNISN').textContent = data.nisn;
+
+            const tbody = document.getElementById('scoreTableBody');
+            tbody.innerHTML = '';
+
+            // Helper to create row
+            const addRow = (mapel, nilai, kategori) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-6 py-4 font-medium text-gray-900">${mapel}</td>
+                    <td class="px-6 py-4 text-center text-gray-700">${nilai}</td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${catColor(kategori)}">
+                            ${kategori || '-'}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            };
+
+            const catColor = (cat) => {
+                if(!cat) return 'bg-gray-100 text-gray-800';
+                const c = cat.toLowerCase();
+                if(c.includes('lulus') || c.includes('baik') || c === 'a' || c === 'b') return 'bg-green-100 text-green-800';
+                if(c.includes('gagal') || c.includes('kurang') || c === 'd' || c === 'e') return 'bg-red-100 text-red-800';
+                return 'bg-yellow-100 text-yellow-800';
+            };
+
+            // Fixed Subjects
+            addRow('Bahasa Indonesia', data.nilai_indonesia, data.kategori_indonesia);
+            addRow('Matematika', data.nilai_matematika, data.kategori_matematika);
+            addRow('Bahasa Inggris', data.nilai_inggris, data.kategori_inggris);
+
+            // Optional Subjects (Dynamic)
+            if (data.nama_mapel_pilihan_1) {
+                addRow(data.nama_mapel_pilihan_1, data.nilai_pilihan_1, data.kategori_pilihan_1);
+            }
+            if (data.nama_mapel_pilihan_2) {
+                addRow(data.nama_mapel_pilihan_2, data.nilai_pilihan_2, data.kategori_pilihan_2);
+            }
+        }
+
+        function resetSearch() {
+            resultSection.classList.add('hidden');
+            searchSection.classList.remove('hidden');
+            searchForm.reset();
+        }
+    </script>
+</body>
+</html>

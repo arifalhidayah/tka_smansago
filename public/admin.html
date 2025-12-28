@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Upload Nilai</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-md w-full bg-gray-800 rounded-xl shadow-2xl overflow-hidden border border-gray-700">
+
+        <div class="p-6 border-b border-gray-700">
+            <h1 class="text-xl font-bold text-white mb-1">Admin Upload</h1>
+            <p class="text-gray-400 text-sm">Unggah data nilai siswa via Excel.</p>
+        </div>
+
+        <div class="p-6 space-y-4">
+
+            <!-- Auth Token Input -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Admin Secret Token</label>
+                <input type="password" id="adminToken" placeholder="Masukkan token rahasia..."
+                    class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition">
+            </div>
+
+            <!-- File Upload -->
+            <div class="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-indigo-500 transition-colors cursor-pointer"
+                onclick="document.getElementById('fileInput').click()">
+                <input type="file" id="fileInput" class="hidden" accept=".xlsx, .xls">
+                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <path
+                        d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <p class="mt-2 text-sm text-gray-400" id="fileName">Klik untuk pilih file Excel</p>
+            </div>
+
+            <!-- Action -->
+            <button id="btnUpload"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                Upload Data
+            </button>
+
+            <!-- Status -->
+            <div id="statusMsg" class="hidden p-3 rounded-lg text-sm text-center"></div>
+
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const btnUpload = document.getElementById('btnUpload');
+        const statusMsg = document.getElementById('statusMsg');
+        const adminToken = document.getElementById('adminToken');
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                fileName.textContent = e.target.files[0].name;
+                fileName.classList.add('text-indigo-400');
+            }
+        });
+
+        btnUpload.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            const token = adminToken.value.trim();
+
+            if (!file) return showStatus('Pilih file terlebih dahulu!', 'error');
+            if (!token) return showStatus('Masukkan token admin!', 'error');
+
+            // UI Loading
+            btnUpload.disabled = true;
+            btnUpload.textContent = 'Uploading...';
+            showStatus('', 'hidden');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    headers: {
+                        'x-admin-token': token
+                    },
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showStatus(result.message || 'Upload Berhasil!', 'success');
+                    fileInput.value = '';
+                    fileName.textContent = 'Klik untuk pilih file Excel';
+                    fileName.classList.remove('text-indigo-400');
+                } else {
+                    throw new Error(result.error || 'Upload gagal.');
+                }
+
+            } catch (err) {
+                showStatus(err.message, 'error');
+            } finally {
+                btnUpload.disabled = false;
+                btnUpload.textContent = 'Upload Data';
+            }
+        });
+
+        function showStatus(msg, type) {
+            statusMsg.textContent = msg;
+            statusMsg.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
+
+            if (type === 'success') {
+                statusMsg.classList.add('bg-green-900', 'text-green-100', 'block');
+                statusMsg.classList.remove('hidden');
+            } else if (type === 'error') {
+                statusMsg.classList.add('bg-red-900', 'text-red-100', 'block');
+                statusMsg.classList.remove('hidden');
+            } else {
+                statusMsg.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+
+</html>
